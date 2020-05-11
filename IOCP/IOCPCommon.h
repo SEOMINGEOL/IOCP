@@ -9,6 +9,10 @@
 #include <iostream>
 #include <string>
 #include <WinSock2.h>
+#include <mutex>
+
+static std::mutex log_mutex;
+static std::mutex user_mutex;
 
 enum {
     Normal = 0,
@@ -23,6 +27,8 @@ enum {
     LISTEN,
     ACCEPT
 };
+/*
+//미사용으로 주석
 
 namespace Log_Form
 {
@@ -54,18 +60,21 @@ static void Log(int level, std::string log_data)
     log += log_data;
     std::cout << log << std::endl;
 }
-
+*/
 
 static void Log_printf(int level, const char* log_data, ...)
 {
+    log_mutex.lock();
     va_list va;
     char buf[MAX_BUF_SIZE];
 
     va_start(va, log_data);
-    vsprintf_s(buf, log_data, va);
+    vsnprintf_s(buf, MAX_BUF_SIZE, log_data, va);
     va_end(va);
 
     std::cout << buf << std::endl;
+
+    log_mutex.unlock();
 }
 
 

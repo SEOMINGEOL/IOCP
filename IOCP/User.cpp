@@ -26,7 +26,6 @@ std::string User::GetUserIp()
 {
 	char ip[32];
 	inet_ntop(PF_INET, &this->user_address.sin_addr, ip, sizeof(ip));
-	std::string result_ip(ip);
 
-	return result_ip;
+	return ip;
 }

@@ -16,7 +16,7 @@ public:
 	User(SOCKET user_sock, SOCKADDR_IN user_addr);
 	SOCKET GetUserSocket();
 	std::string GetUserIp();
-	int GetuserPort();
+	int GetUserPort();
 };
 
 #endif // !__USER__

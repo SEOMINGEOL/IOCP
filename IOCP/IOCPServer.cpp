@@ -1,8 +1,31 @@
 #include "IOCPServer.h"
 #include "Socket.h"
-#include "User.h"
 #include "Exception.h"
 #include <vector>
+
+
+void DeleteUser(SOCKET userSocket);
+
+static std::vector<User*> users = std::vector<User*>();
+
+
+void DeleteUser(SOCKET userSocket)
+{
+    
+    user_mutex.lock();
+    int length = users.size();
+    for (int i = 0 ; i < length ; i++)
+    {
+        if (userSocket == users[i]->GetUserSocket())
+        {
+            Log_printf(Normal, "유저가 나갔습니다.(%s)", users[i]->GetUserIp().c_str());
+            users.erase(users.begin() + i);
+            Log_printf(Normal, "현재 유저 수 : %d", users.size());
+            break;
+        }
+    }
+    user_mutex.unlock();
+}
 
 DWORD WINAPI workerThread(LPVOID hIOCP)
 {
@@ -22,13 +45,16 @@ DWORD WINAPI workerThread(LPVOID hIOCP)
             if (receiveBytes == 0)
             {
                 //비정상 접속 종료
-                Log(Error, Log_Form::Format("Client Abnormal DisConnected(" + (std::string)")", WSAGetLastError()));
+                Log_printf(Error, "Client Abnormal DisConnected(%d)", WSAGetLastError());
+                DeleteUser(eventSocket->socket);
             }
             else
             {
                 //접속 종료가 아닌 다른 에러일 경우
-                Log(Error, Log_Form::Format("GetQueuedCompletionStatus Failure(" + (std::string)")", WSAGetLastError()));
+                Log_printf(Error, "CGetQueuedCompletionStatus Failure(%d)", WSAGetLastError());
+                DeleteUser(eventSocket->socket);
             }
+
             closesocket(eventSocket->socket);
             free(eventSocket);
             return 1;
@@ -39,7 +65,8 @@ DWORD WINAPI workerThread(LPVOID hIOCP)
         if (receiveBytes == 0)
         {
             //정상적인 접속종료
-            Log(Normal, Log_Form::Format("Client Normal DisConnected(" + (std::string)")", WSAGetLastError()));
+            Log_printf(Error, "Client Normal DisConnected(%d)", WSAGetLastError());
+            DeleteUser(eventSocket->socket);
             closesocket(eventSocket->socket);
             free(eventSocket);
             continue;
@@ -47,12 +74,12 @@ DWORD WINAPI workerThread(LPVOID hIOCP)
         else
         {
             //데이터 처리
-            Log_printf(Normal, "Receive message : %s (%d bytes", eventSocket->dataBuffer.buf, eventSocket->dataBuffer.len);
+            Log_printf(Normal, "Receive message : %s (%d bytes)", eventSocket->dataBuffer.buf, eventSocket->dataBuffer.len);
             if (WSASend(eventSocket->socket, &(eventSocket->dataBuffer), 1, &sendBytes, 0, NULL, NULL) == SOCKET_ERROR)
             {
                 if (WSAGetLastError() != WSA_IO_PENDING)
                 {
-                    Log(Error, Log_Form::Format("Fail WSASend(error_code : %d)\n", WSAGetLastError()));
+                    Log_printf(Error, "Fail WSASend(error_code : %d)", WSAGetLastError());
                 }
             }
 
@@ -68,7 +95,7 @@ DWORD WINAPI workerThread(LPVOID hIOCP)
             {
                 if (WSAGetLastError() != WSA_IO_PENDING)
                 {
-                    Log_printf(Error, "Fail WSARecv(error_code : %d)\n", WSAGetLastError());
+                    Log_printf(Error, "Fail WSARecv(error_code : %d)", WSAGetLastError());
                 }
             }
         }
@@ -108,19 +135,14 @@ BOOL IOCPServer::Start()
         socket.Bind();
         socket.Listen();
 
-        SOCKADDR_IN clientAddr;
-        int addrLen = sizeof(SOCKADDR_IN);
-        memset(&clientAddr, 0, addrLen);
-
         SOCKETINFO* socketInfo;
         DWORD receiveBytes;
-        DWORD flags;
-
-        std::vector<User*> users = std::vector<User*>();
+        DWORD flag;
 
         Log_printf(Normal, "Server Start");
         while (1)
         {
+            //Accept에서는 Hold 됨.
             User* user = socket.Accept();
 
             socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));
@@ -130,22 +152,27 @@ BOOL IOCPServer::Start()
             socketInfo->sendBytes = 0;
             socketInfo->dataBuffer.len = MAX_BUF_SIZE;
             socketInfo->dataBuffer.buf = socketInfo->messageBuffer;
-            flags = 0;
+            flag = 0;
 
             // 중첩 소캣을 지정하고 완료시 실행될 함수를 넘겨준다.
             hIOCP = CreateIoCompletionPort((HANDLE)user->GetUserSocket(), hIOCP, (DWORD)socketInfo, 0);
 
-            Log(Normal, "Client Connected(" + std::string(user->GetUserIp()) + (std::string)")");
+            //유저 추가
+            user_mutex.lock();
+            users.push_back(user);
+            user_mutex.unlock();
+
+            Log_printf(Normal, "유저가 추가되었습니다.(%s) 현재 유저 수 : %d", user->GetUserIp().c_str(), users.size());
+            Log_printf(Normal, "Client Connected(%s)", user->GetUserIp().c_str());
             //최초의 CP 등록 WSARecv, WSASend와 같은 명령어가 주어져야 입력이나 출력이 완료된 후 메인쓰레드에서 처리할 수 있게 됨.
-            if (WSARecv(socketInfo->socket, &socketInfo->dataBuffer, 1, &receiveBytes, &flags, &(socketInfo->overlapped), NULL))
+            if (WSARecv(socketInfo->socket, &socketInfo->dataBuffer, 1, &receiveBytes, &flag, &(socketInfo->overlapped), NULL))
             {
                 if (WSAGetLastError() != WSA_IO_PENDING)
                 {
-                    printf("Error - IO pending Failure\n");
+                    Log_printf(Error, "IO pending Failure");
                     return 1;
                 }
             }
-            
         }
     }
     catch (SocketException& expt)
@@ -153,5 +180,10 @@ BOOL IOCPServer::Start()
         //생성, bind, Listen시 발생되는에러 캐치
         expt.ShowException();
     }
+    catch (...)
+    {
+        Log_printf(Error, "Some Error...");
+    }
+
     return 1;
 }
