@@ -12,8 +12,6 @@ private:
 public:
 	IOCPServer();
 	BOOL Start();
-	void AddUser(User* user);
-	void DeleteUser(SOCKET userSocket);
 };
 #endif // !__IOCP_SERVER__
 

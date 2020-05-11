@@ -13,7 +13,7 @@ struct SOCKETINFO
     WSAOVERLAPPED overlapped;
     WSABUF dataBuffer;
     SOCKET socket;
-    char messageBuffer[1024];
+    char messageBuffer[MAX_BUF_SIZE];
     int receiveBytes;
     int sendBytes;
 };

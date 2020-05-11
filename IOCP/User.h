@@ -10,6 +10,7 @@ class User
 private:
 	SOCKET user_sock;
 	SOCKADDR_IN user_address;
+	
 public:
 	User();
 	~User();
@@ -19,5 +20,5 @@ public:
 	int GetUserPort();
 };
 
-#endif // !__USER__
+#endif // !__USER_H__
 
