@@ -1,10 +1,7 @@
 ﻿#include <iostream>
-
-int main()
+#include "IOCPServer.h"
+int main(void)
 {
-    std::cout << "Hello World!\n";
-    
-
-
-    
+    IOCPServer server;
+    server.Start();
 }
