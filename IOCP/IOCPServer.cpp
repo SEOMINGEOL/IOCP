@@ -3,12 +3,9 @@
 #include "Exception.h"
 #include <vector>
 
-
-void DeleteUser(SOCKET userSocket);
-
 static std::vector<User*> users = std::vector<User*>();
 
-void AddUser(User* user)
+void IOCPServer::AddUser(User* user)
 {
     user_mutex.lock();
     users.push_back(user);
@@ -16,7 +13,7 @@ void AddUser(User* user)
     Log_printf(Normal, "유저가 추가되었습니다.(%s) 현재 유저 수 : %d", user->GetUserIp().c_str(), users.size());
 }
 
-void DeleteUser(SOCKET userSocket)
+void IOCPServer::DeleteUser(SOCKET userSocket)
 {
     
     user_mutex.lock();
@@ -34,7 +31,7 @@ void DeleteUser(SOCKET userSocket)
     user_mutex.unlock();
 }
 
-void Send_Data(SOCKET socket, WSABUF* buf)
+void IOCPServer::Send_Data(SOCKET socket, WSABUF* buf)
 {
     DWORD sendBytes;
     if (WSASend(socket, buf, 1, &sendBytes, 0, NULL, NULL) == SOCKET_ERROR)
@@ -46,17 +43,17 @@ void Send_Data(SOCKET socket, WSABUF* buf)
     }
 }
 
-void SendAllClient(WSABUF* buf)
+void IOCPServer::SendAllClient(WSABUF* buf)
 {
     int len = users.size();
-    Log_printf(Normal, "Receive message : %s (%d bytes)", buf->buf, buf->len);
+    //Log_printf(Normal, "Send message : %s (%d bytes)", buf->buf, buf->len);
     for (int i = 0; i < len; i++)
     {
         Send_Data(users[i]->GetUserSocket(), buf);
     }
 }
 
-void Read_Data(SOCKET socket, WSABUF* buf, WSAOVERLAPPED* overlapped)
+void IOCPServer::Read_Data(SOCKET socket, WSABUF* buf, WSAOVERLAPPED* overlapped)
 {
     DWORD receiveBytes;
     DWORD flags = 0;
@@ -71,7 +68,7 @@ void Read_Data(SOCKET socket, WSABUF* buf, WSAOVERLAPPED* overlapped)
     }
 }
 
-DWORD WINAPI workerThread(LPVOID hIOCP)
+DWORD WINAPI IOCPServer::workerThread(LPVOID hIOCP)
 {
     HANDLE threadHandler = *((HANDLE*)hIOCP);
     DWORD receiveBytes;
@@ -132,7 +129,7 @@ DWORD WINAPI workerThread(LPVOID hIOCP)
             }
             */
 
-            Log_printf(Normal, "Send message : %s (%d bytes)", eventSocket->dataBuffer.buf, eventSocket->dataBuffer.len);
+            Log_printf(Normal, "Receive message : %s (%d bytes)", eventSocket->dataBuffer.buf, eventSocket->dataBuffer.len);
             memset(eventSocket->messageBuffer, 0x00, MAX_BUF_SIZE);
             eventSocket->receiveBytes = 0;
             eventSocket->sendBytes = 0;

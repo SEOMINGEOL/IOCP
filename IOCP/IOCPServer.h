@@ -12,6 +12,12 @@ private:
 public:
 	IOCPServer();
 	BOOL Start();
+	static DWORD WINAPI workerThread(LPVOID hIOCP);
+	static void AddUser(User* user);
+	static void DeleteUser(SOCKET userSocket);
+	static void SendAllClient(WSABUF* buf);
+	static void Send_Data(SOCKET socket, WSABUF* buf);
+	static void Read_Data(SOCKET socket, WSABUF* buf, WSAOVERLAPPED* overlapped);
 };
 #endif // !__IOCP_SERVER__
 

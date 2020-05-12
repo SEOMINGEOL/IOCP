@@ -8,6 +8,10 @@ class CommonException
 {
 public:
 	virtual void ShowException() = 0;
+	virtual ~CommonException()
+	{
+
+	}
 };
 
 class SocketException : public CommonException
